@@ -2,3 +2,6 @@
 build/
 .DS_Store
 *.xcodeproj
+
+# Signing (contains identity refs, not secrets — but keep local)
+.env-sign

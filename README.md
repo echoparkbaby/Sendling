@@ -57,7 +57,7 @@ There are no dependencies — the transfer layer is `curl` and `sftp`, the archi
 
 If Sendling saves you a subscription, you can buy me a coffee:
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-%E2%98%95%20echoparkbaby-FFDD00?style=for-the-badge&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/echoparkbaby)
+<a href="https://buymeacoffee.com/echoparkbaby"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="50"></a>
 
 ## License
 

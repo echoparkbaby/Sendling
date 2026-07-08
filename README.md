@@ -1,0 +1,64 @@
+# Sendling
+
+**Drop a file. Get a link.**
+
+Sendling is a native macOS app that uploads files to *your own* server (SFTP, FTP, FTPS, or WebDAV) and puts a shareable download link on your clipboard. No third-party cloud, no accounts, no subscription — your server, your files, your links.
+
+It's a modern, open-source successor to the late, great [FileChute](https://yellowmug.com/filechute/), rebuilt from scratch in Swift and SwiftUI.
+
+![Sendling main window](docs/screenshot.png)
+
+## Features
+
+- **Drag & drop anywhere** — the window, the Dock icon, or pick files with ⌘O
+- **Your server, your rules** — SFTP (password or SSH key), FTP, FTPS, WebDAV, Nextcloud, and Dropbox
+- **Real share links** — Nextcloud accounts get `/s/…` links via the OCS API; Dropbox accounts get proper share links (one-time OAuth setup with your own app key)
+- **Instant links** — download URL copied to your clipboard the moment the upload finishes
+- **Archives on the fly** — wrap files/folders as `zip`, `tar.gz`, or `dmg`, optionally password-protected, with `.DS_Store` excluded
+- **Smart naming** — archive names from the item name, a random string (harder to guess on your server), or both
+- **Sent-file history** — sortable table with name, size, send date, and age; filter with the search field
+- **Expiry** — set per-account expiry in days, see ages tick up (orange → red), and delete expired files from the server with ⌘D or automatically at launch
+- **Refresh** — loads the server's real directory listing: files uploaded from anywhere appear, sizes sync, and vanished files get flagged (WebDAV verifies via HEAD instead)
+- **QR codes** — show a scannable code for any link, perfect for handing a file to a phone
+- **Menu bar extra** — recent links one click away, send files without the main window
+- **Multiple accounts** — switch with ⌘1–⌘9
+- **Per-file actions** — copy link, open in browser, compose email, delete from server (right-click or the Links menu)
+- **Native notifications** and optional completion sounds
+- **FileChute migration** — one-click account import if FileChute's preferences are found
+- **Universal binary** (Apple silicon + Intel), signed with a Developer ID
+
+## Install
+
+Grab the latest `Sendling.app` from [Releases](https://github.com/echoparkbaby/Sendling/releases), unzip, and drag it into `/Applications`.
+
+Requires macOS 14 (Sonoma) or later.
+
+## Setup
+
+1. Open **Settings… (⌘,) → Accounts** and add an account.
+2. Fill in the server details and the **Download URL** — the public web address where uploaded files become reachable (e.g. your server's `~/public_html/files` might be `https://example.com/files`).
+3. Drop a file on the window. The link is on your clipboard.
+
+For SFTP, leave the password empty to authenticate with your SSH keys.
+
+## Build from source
+
+```
+git clone https://github.com/echoparkbaby/Sendling.git
+cd Sendling
+./build.sh "-"
+```
+
+`./build.sh` produces a signed universal `build/Sendling.app`. Pass your own signing identity as the first argument, or `"-"` for ad-hoc signing. Plain `swift build` works for development.
+
+There are no dependencies — the transfer layer is `curl` and `sftp`, the archive layer is `zip`, `tar`, and `hdiutil`, all shipped with macOS.
+
+## Support
+
+If Sendling saves you a subscription, you can buy me a coffee:
+
+<a href="https://buymeacoffee.com/echoparkbaby"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=echoparkbaby&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" alt="Buy Me A Coffee" height="44"></a>
+
+## License
+
+MIT — see [LICENSE](LICENSE).

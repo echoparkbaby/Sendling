@@ -14,6 +14,9 @@ struct ContentView: View {
     @State private var deleteErrors: [String] = []
     @State private var showDeleteErrors = false
     @State private var refreshing = false
+    @State private var renameID: SentFile.ID?
+    @State private var renameText = ""
+    @State private var showRename = false
     @AppStorage("didOnboard") private var didOnboard = false
     @State private var showWelcome = false
     @State private var updater = UpdateChecker.shared
@@ -89,6 +92,13 @@ struct ContentView: View {
             Button("OK") { uploads.lastError = nil }
         } message: {
             Text(uploads.lastError ?? "")
+        }
+        .alert("Rename file", isPresented: $showRename) {
+            TextField("New name", text: $renameText)
+            Button("Rename") { performRename() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Renames the file on the server. Its link updates to match.")
         }
         .onDeleteCommand {
             // Scope to visible rows of the current account, not the raw (possibly stale) selection
@@ -178,12 +188,30 @@ struct ContentView: View {
         Button("Email") { composeEmail(urls: urls(for: ids)) }
         Button("Text") { textLink(urls: urls(for: ids)) }
         Divider()
+        if ids.count == 1, let id = ids.first {
+            Button("Rename…") { startRename(id) }
+        }
         Button("Delete from Server…", role: .destructive) {
             pendingDeleteIDs = ids
             confirmDelete = true
         }
         Button("Remove from List") {
             store.removeFiles(ids: ids)
+        }
+    }
+
+    private func startRename(_ id: SentFile.ID) {
+        guard let file = store.currentFiles.first(where: { $0.id == id }) else { return }
+        renameID = id
+        renameText = file.name
+        showRename = true
+    }
+
+    private func performRename() {
+        guard let id = renameID else { return }
+        let newName = renameText
+        Task {
+            if let error = await uploads.rename(id, to: newName) { uploads.lastError = error }
         }
     }
 
@@ -338,6 +366,9 @@ struct HeaderBar: View {
     private var linkText: String {
         if let first = links.first { return first.absoluteString }
         if files.isEmpty { return "Select a file — or drop one on the chute — to get its link" }
+        if account?.type.linksFromAPI == true {
+            return "No share link yet — check the account’s sharing permissions, then Refresh"
+        }
         return "No download URL — set one in Settings"
     }
 

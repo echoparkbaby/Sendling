@@ -325,6 +325,44 @@ enum Transfer {
         }
     }
 
+    // MARK: Rename
+
+    /// Renames a file on the server (within the same remote directory).
+    static func rename(fileName: String, to newName: String, account: Account, password: String) async throws {
+        let runner = ProcessRunner()
+        let auth = basicAuthConfig(account, password: password)
+        switch account.type {
+        case .ftp, .ftps:
+            let old = remotePath(account.remoteDir, fileName)
+            let new = remotePath(account.remoteDir, newName)
+            let dirURL = ftpURL(account, path: account.remoteDir.isEmpty ? "" : account.remoteDir + "/")
+            try await runCurl(curlBase(account) +
+                              ["--list-only", "-Q", "RNFR \(old)", "-Q", "RNTO \(new)", dirURL],
+                              auth: auth, runner: runner)
+        case .webdav:
+            try await runCurl(curlBase(account) +
+                              ["-X", "MOVE", "-H", "Destination: \(webdavURL(account, name: newName))",
+                               "-H", "Overwrite: F", "-o", "/dev/null", webdavURL(account, name: fileName)],
+                              auth: auth, runner: runner)
+        case .nextcloud:
+            try await runCurl(curlBase(account) +
+                              ["-X", "MOVE", "-H", "Destination: \(NextcloudAPI.davURL(account, name: newName))",
+                               "-H", "Overwrite: F", "-o", "/dev/null", NextcloudAPI.davURL(account, name: fileName)],
+                              auth: auth, runner: runner)
+        case .dropbox:
+            let token = try await DropboxAPI.accessToken(appKey: account.dropboxAppKey ?? "",
+                                                         refreshToken: password)
+            _ = try await DropboxAPI.rpc("files/move_v2",
+                                         args: ["from_path": DropboxAPI.apiPath(dir: account.remoteDir, name: fileName),
+                                                "to_path": DropboxAPI.apiPath(dir: account.remoteDir, name: newName)],
+                                         token: token)
+        case .sftp:
+            try await runSFTP(batch: "rename \(try sftpQuote(remotePath(account.remoteDir, fileName))) "
+                              + "\(try sftpQuote(remotePath(account.remoteDir, newName)))\n",
+                              account: account, password: password, runner: runner)
+        }
+    }
+
     // MARK: SFTP via CLI
 
     /// Quotes a path for an sftp batch line. sftp's tokenizer honors `\\` and `\"` inside

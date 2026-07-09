@@ -102,6 +102,8 @@ There are no dependencies — the transfer layer is `curl` and `sftp`, the archi
 
 ## Changelog
 
+**1.0.5** — Rename a sent file on the server (right-click → Rename…), across all backends, with the link kept in sync. Clearer feedback when a Nextcloud/Dropbox share link can't be created (e.g. a missing permission).
+
 **1.0.4** — Fixed dragging a file onto the Dock icon (a regression had broken file opens). Fixed Dropbox uploads (were failing with a 504 — wrong HTTP method) and made Dropbox errors readable, with the exact permissions to enable in the setup hint. Added the macOS files-and-folders usage prompts for watched folders in Desktop/Documents/Downloads.
 
 **1.0.3** — Text a link: the link bar is Copy · Email · Text · Open · QR, with a Text button that opens Messages. Fixed the Dropbox "paste the code" field.

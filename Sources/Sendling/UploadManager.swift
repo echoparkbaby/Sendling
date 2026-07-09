@@ -289,7 +289,13 @@ final class UploadManager {
         let size = (try? uploadURL.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) ?? 0
         var file = SentFile(accountID: account.id, name: name, size: size, sentDate: .now)
         if account.type.linksFromAPI {
-            file.link = try? await Transfer.shareLink(for: name, account: account, password: password)
+            // Upload succeeded; if the share link fails (e.g. missing sharing scope), keep the
+            // file but tell the user why instead of silently showing no link.
+            do {
+                file.link = try await Transfer.shareLink(for: name, account: account, password: password)
+            } catch {
+                lastError = "Uploaded, but couldn’t create a share link: \(error.localizedDescription)"
+            }
         }
         store.add(file)
         return account.downloadURL(for: file)
@@ -446,6 +452,26 @@ final class UploadManager {
 
     func deleteExpired() async -> [String] {
         await deleteRemote(ids: Set(store.expiredFiles.map(\.id)))
+    }
+
+    /// Renames a file on the server and updates history + link. Returns an error message, or nil.
+    func rename(_ id: SentFile.ID, to newName: String) async -> String? {
+        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        guard let file = store.files.first(where: { $0.id == id }),
+              let account = store.accounts.first(where: { $0.id == file.accountID }) else { return nil }
+        guard !trimmed.isEmpty, trimmed != file.name else { return nil }
+        let password = store.password(for: account)
+        do {
+            try await Transfer.rename(fileName: file.name, to: trimmed, account: account, password: password)
+            store.rename(id, to: trimmed)
+            if account.type.linksFromAPI,
+               let link = try? await Transfer.shareLink(for: trimmed, account: account, password: password) {
+                store.setLink(id, link)
+            }
+            return nil
+        } catch {
+            return "Couldn’t rename \(file.name): \(error.localizedDescription)"
+        }
     }
 
     func refresh(quiet: Bool = false) async {

@@ -210,6 +210,13 @@ final class Store {
         save()
     }
 
+    func rename(_ id: SentFile.ID, to newName: String) {
+        guard let i = files.firstIndex(where: { $0.id == id }) else { return }
+        files[i].name = newName
+        files[i].link = nil // derived URLs follow the name; API links get re-fetched
+        save()
+    }
+
     func removeFiles(ids: Set<SentFile.ID>) {
         files.removeAll { ids.contains($0.id) }
         selection.subtract(ids)

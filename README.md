@@ -61,8 +61,10 @@ Dropbox needs a one-time app registration (you make your own free Dropbox app �
    - **App folder** (recommended) — Sendling can only touch its own folder at `Dropbox/Apps/<your app name>/`. Tidiest and safest.
    - **Full Dropbox** — Sendling can write anywhere in your Dropbox.
 3. Name the app (e.g. `Sendling`) and create it.
-4. Open the **Permissions** tab and enable these scopes, then click **Submit**:
+4. Open the **Permissions** tab and enable exactly these five scopes, then click **Submit** (existing tokens aren't affected):
    `account_info.read`, `files.metadata.read`, `files.content.write`, `sharing.write`, `sharing.read`.
+
+   ![Dropbox permissions to enable](docs/dropbox-permissions.png)
 5. On the **Settings** tab, copy the **App key** (a short ~15-character string — *not* the long code from the next step).
 6. In Sendling: **Settings → Accounts → +**, set **Type: Dropbox**, paste the **App key**, click **Connect to Dropbox…**, approve in the browser, then paste the code Dropbox shows back into the field and click **Finish Connecting**.
 

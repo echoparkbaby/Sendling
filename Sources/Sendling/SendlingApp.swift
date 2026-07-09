@@ -14,7 +14,16 @@ struct SendlingApp: App {
             ContentView()
                 .environment(store)
                 .environment(uploads)
-                .onOpenURL { uploads.handleSchemeURL($0) } // sendling:// automation hook
+                // SwiftUI routes every opened URL here — Dock/`open` file drops AND the
+                // sendling:// scheme. Handle both (a bare scheme-only handler drops files).
+                .onOpenURL { url in
+                    NSApp.activate(ignoringOtherApps: true)
+                    if url.isFileURL {
+                        uploads.send([url], to: store.currentAccount)
+                    } else {
+                        uploads.handleSchemeURL(url)
+                    }
+                }
         }
         .defaultSize(width: 720, height: 460)
         .commands { commands }
@@ -180,15 +189,6 @@ struct MenuBarContent: View {
 // MARK: - App delegate (dock drops, launch housekeeping)
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    func application(_ application: NSApplication, open urls: [URL]) {
-        let files = urls.filter(\.isFileURL)
-        let schemeURLs = urls.filter { $0.scheme == "sendling" }
-        Task { @MainActor in
-            if !files.isEmpty { UploadManager.shared.send(files, to: Store.shared.currentAccount) }
-            for url in schemeURLs { UploadManager.shared.handleSchemeURL(url) } // covers Dock/`open` path
-        }
-    }
-
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.servicesProvider = self // enables the Finder "Send with Sendling" Services items
 

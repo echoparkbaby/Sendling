@@ -82,6 +82,18 @@ cd Sendling
 
 There are no dependencies — the transfer layer is `curl` and `sftp`, the archive layer is `zip`, `tar`, and `hdiutil`, all shipped with macOS.
 
+## Changelog
+
+**1.0.4** — Fixed dragging a file onto the Dock icon (a regression had broken file opens). Fixed Dropbox uploads (were failing with a 504 — wrong HTTP method) and made Dropbox errors readable, with the exact permissions to enable in the setup hint. Added the macOS files-and-folders usage prompts for watched folders in Desktop/Documents/Downloads.
+
+**1.0.3** — Text a link: the link bar is Copy · Email · Text · Open · QR, with a Text button that opens Messages. Fixed the Dropbox "paste the code" field.
+
+**1.0.2** — Two drop wells (Send / Compress); ⌥-drop per-send options (rename, image compress, link expiry); image optimization; `sendling://` URL-scheme automation; in-app self-updater; ⌘-delete without confirmation; "Compressing…" status.
+
+**1.0.1** — iCloud sync; Finder "Send with Sendling" services; watched-folder auto-upload; expiring share links; Test Connection; retry failed uploads; Copy as Markdown/HTML.
+
+**1.0** — Initial release: SFTP/FTP/FTPS/WebDAV/Nextcloud/Dropbox, share links, archives, expiry, refresh, QR codes, menu bar extra, FileChute import.
+
 ## Support
 
 If Sendling saves you a subscription, you can buy me a coffee:

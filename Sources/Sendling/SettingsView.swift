@@ -274,9 +274,9 @@ struct AccountDetail: View {
                 Text(dropboxError).font(.caption).foregroundStyle(.red)
             }
 
-            TextField("Dropbox folder:", text: $account.remoteDir, prompt: Text("Sendling"))
+            TextField("Dropbox folder:", text: $account.remoteDir, prompt: Text("optional subfolder"))
         } footer: {
-            Text("One-time setup: create a free app at dropbox.com/developers/apps (scoped access, full Dropbox) with permissions files.content.write, files.content.read, sharing.write, sharing.read. Paste its App key above, then Connect. Share links are created automatically after each upload.")
+            Text("One-time setup: create a free app at dropbox.com/developers/apps (scoped access). Under Permissions enable account_info.read, files.metadata.read, files.content.write, sharing.write, and sharing.read, then Submit. Paste its App key above and Connect — reconnect after changing permissions. Leave the folder blank to upload to the app's base folder (App-folder apps put this under Apps/YourApp). Share links are created automatically after each upload.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

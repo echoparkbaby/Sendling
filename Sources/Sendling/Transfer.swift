@@ -192,10 +192,11 @@ enum Transfer {
 
     static func upload(_ localURL: URL, as name: String, to account: Account, password: String,
                        runner: ProcessRunner, progress: @escaping @Sendable (Double) -> Void) async throws {
-        // Every backend except SFTP is one curl PUT; the switch picks URL + extra args + auth.
+        // FTP/FTPS/WebDAV/Nextcloud are one curl PUT with basic auth; SFTP and Dropbox handle
+        // themselves and return early.
         let url: String
         var extra: [String] = []
-        var auth = basicAuthConfig(account, password: password)
+        let auth = basicAuthConfig(account, password: password)
 
         switch account.type {
         case .ftp, .ftps:
@@ -218,9 +219,18 @@ enum Transfer {
                 "path": DropboxAPI.apiPath(dir: account.remoteDir, name: name),
                 "mode": "overwrite", "autorename": false,
             ])
-            url = "https://content.dropboxapi.com/2/files/upload"
-            extra = ["-H", "Dropbox-API-Arg: \(arg)", "-H", "Content-Type: application/octet-stream"]
-            auth = "header = \(curlQuote("Authorization: Bearer \(token)"))\n" // Bearer off argv
+            // -X POST: /2/files/upload requires POST (-T alone sends PUT → 404/504). No --fail:
+            // capture Dropbox's JSON error body and the status so failures explain themselves.
+            let out = try await runCurl(
+                ["-sS", "-g", "--connect-timeout", "\(account.timeoutSeconds)", "-X", "POST",
+                 "-H", "Dropbox-API-Arg: \(arg)", "-H", "Content-Type: application/octet-stream",
+                 "--progress-bar", "-w", "\nSENDLING_HTTP:%{http_code}",
+                 "-T", localURL.path, "https://content.dropboxapi.com/2/files/upload"],
+                auth: "header = \(curlQuote("Authorization: Bearer \(token)"))\n", // Bearer off argv
+                runner: runner,
+                onStderr: { chunk in if let pct = lastPercent(in: chunk) { progress(pct / 100) } })
+            try DropboxAPI.checkUploadResponse(out)
+            return
         case .sftp:
             // ponytail: sftp CLI gives no machine-readable progress; UI shows indeterminate
             let dir = account.remoteDir.trimmingCharacters(in: CharacterSet(charactersIn: "/ "))

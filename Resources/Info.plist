@@ -9,9 +9,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.hellocomputer.Sendling</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.3</string>
+	<string>1.0.4</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.3</string>
+	<string>1.0.4</string>
 	<key>CFBundleExecutable</key>
 	<string>Sendling</string>
 	<key>CFBundlePackageType</key>
@@ -32,6 +32,14 @@
 	<string>© 2026 Brandon Walter. MIT License.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Sendling notifies you when uploads finish.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Sendling needs access to upload files you send from your Desktop, or to watch a folder there.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Sendling needs access to upload files you send from your Documents, or to watch a folder there.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Sendling needs access to upload files you send from your Downloads, or to watch a folder there.</string>
+	<key>NSRemovableVolumesUsageDescription</key>
+	<string>Sendling needs access to upload files you send from removable volumes.</string>
 	<key>CFBundleDocumentTypes</key>
 	<array>
 		<dict>
@@ -42,9 +50,9 @@
 				<string>public.item</string>
 			</array>
 			<key>CFBundleTypeRole</key>
-			<string>Viewer</string>
+			<string>Shell</string>
 			<key>LSHandlerRank</key>
-			<string>None</string>
+			<string>Alternate</string>
 		</dict>
 	</array>
 	<key>CFBundleURLTypes</key>

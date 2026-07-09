@@ -142,6 +142,21 @@ enum DropboxAPI {
         }
     }
 
+    /// Inspects a `files/upload` response (body + "SENDLING_HTTP:<code>" from curl -w) and throws
+    /// Dropbox's actual error on non-2xx so the user sees why (bad scope, path conflict, etc.).
+    static func checkUploadResponse(_ out: String) throws {
+        guard let marker = out.range(of: "SENDLING_HTTP:") else { return } // no status → assume ok
+        let code = Int(out[marker.upperBound...].prefix(3)) ?? 0
+        if (200...299).contains(code) { return }
+        let body = String(out[..<marker.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+        if let data = body.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let summary = json["error_summary"] as? String {
+            throw TransferError(message: "Dropbox: \(summary)")
+        }
+        throw TransferError(message: "Dropbox HTTP \(code)" + (body.isEmpty ? "" : ": \(body.prefix(200))"))
+    }
+
     static func parseEntries(_ json: [String: Any]) -> [RemoteEntry] {
         let iso = ISO8601DateFormatter()
         return ((json["entries"] as? [[String: Any]]) ?? []).compactMap { entry in

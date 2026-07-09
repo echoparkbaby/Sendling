@@ -1,8 +1,9 @@
-**Sendling 1.0.3**
+**Sendling 1.0.4**
 
-- **Text a link** — the link bar is now **Copy · Email · Text · Open · QR**. "Text" opens Messages with the link; "Email" is one-click mailto. Both are in the right-click and Links menus too (⌘⇧E / ⌘⇧T).
-- **Dropbox setup fix** — the "paste the code from the browser" field is now a proper full-width box you can actually click into and paste, so connecting a Dropbox account works.
+Bug-fix release.
 
-Everything from 1.0.2 is included (two drop wells, ⌥-drop per-send options, image optimization, `sendling://` automation, in-app self-update, ⌘-delete, and more).
+- **Dock drops / opening files work again** — a regression stopped Sendling from receiving files dragged onto its Dock icon (or opened with it). The Dock icon now accepts any file or folder and transfers it immediately.
+- **Dropbox uploads fixed** — uploads were failing (504) because the request used the wrong HTTP method; they now upload correctly. Dropbox errors are also shown clearly (e.g. a missing permission), instead of a generic failure, and the setup hint lists the exact permissions to enable.
+- **Files-and-folders access** — added the usage descriptions macOS shows when you point a Watched Folder at your Desktop, Documents, or Downloads.
 
-Download `Sendling-v1.0.3.dmg`, open it, drag Sendling to Applications. Requires macOS 14 (Sonoma) or later. Universal (Apple silicon + Intel), signed and notarized. Zero dependencies.
+Download `Sendling-v1.0.4.dmg`, open it, drag Sendling to Applications. Requires macOS 14 (Sonoma) or later. Universal (Apple silicon + Intel), signed and notarized. Zero dependencies.

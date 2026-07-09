@@ -111,6 +111,21 @@ struct Account: Identifiable, Codable, Hashable {
     /// Dropbox OAuth app key (PKCE public client — not a secret).
     /// Optional in storage so pre-existing data.json still decodes.
     var dropboxAppKey: String? = nil
+    /// Password required to open the share link (Nextcloud; Dropbox needs a paid plan).
+    /// Optional so pre-existing data.json still decodes.
+    var linkPassword: String? = nil
+    /// Share link auto-expires after this many days (Nextcloud; Dropbox needs a paid plan).
+    var linkExpireDays: Int? = nil
+
+    // Non-optional binding surfaces for the settings form.
+    var linkPasswordValue: String {
+        get { linkPassword ?? "" }
+        set { linkPassword = newValue.isEmpty ? nil : newValue }
+    }
+    var linkExpireDaysValue: Int {
+        get { linkExpireDays ?? 0 }
+        set { linkExpireDays = newValue == 0 ? nil : newValue }
+    }
 
     /// Non-optional binding surface for the settings form.
     var dropboxAppKeyValue: String {

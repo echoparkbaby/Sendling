@@ -10,9 +10,14 @@ It's a modern, open-source successor to the late, great [FileChute](https://yell
 
 ## Features
 
-- **Drag & drop anywhere** — the window, the Dock icon, or pick files with ⌘O
+- **Two drop wells** — drop on **Send** to upload as-is, or on **Compress** to zip everything into one archive first. Dropping anywhere else on the window (or the Dock icon, or ⌘O) does a normal send.
 - **Your server, your rules** — SFTP (password or SSH key), FTP, FTPS, WebDAV, Nextcloud, and Dropbox
 - **Real share links** — Nextcloud accounts get `/s/…` links via the OCS API; Dropbox accounts get proper share links (one-time OAuth setup with your own app key)
+- **Protected & expiring links** — set a per-account link password and auto-expiry (Nextcloud; Dropbox needs a paid plan)
+- **Finder integration** — right-click any file → Services → **Send with Sendling** (or **Compress & Send**), no need to open the app
+- **Watched folder** — point Sendling at a folder and anything dropped in uploads automatically
+- **Test Connection** — verify a server's host, credentials, and directory before you rely on it
+- **Copy as Markdown / HTML**, retry failed uploads, and an at-launch update check
 - **Instant links** — download URL copied to your clipboard the moment the upload finishes
 - **Archives on the fly** — wrap files/folders as `zip`, `tar.gz`, or `dmg`, optionally password-protected, with `.DS_Store` excluded
 - **Smart naming** — archive names from the item name, a random string (harder to guess on your server), or both

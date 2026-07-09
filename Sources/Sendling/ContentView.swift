@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var refreshing = false
     @AppStorage("didOnboard") private var didOnboard = false
     @State private var showWelcome = false
+    @State private var updater = UpdateChecker.shared
 
     private var visibleFiles: [SentFile] {
         var files = store.currentFiles
@@ -33,6 +34,11 @@ struct ContentView: View {
         @Bindable var uploads = uploads
 
         VStack(spacing: 0) {
+            if let version = updater.newerVersion {
+                UpdateBanner(version: version, url: updater.releaseURL) { updater.dismiss() }
+                Divider()
+            }
+
             if !store.accounts.isEmpty {
                 HeaderBar(files: selectedFiles, account: store.currentAccount)
                 Divider()
@@ -164,6 +170,8 @@ struct ContentView: View {
     @ViewBuilder
     private func contextMenu(for ids: Set<SentFile.ID>) -> some View {
         Button("Copy Link") { copyLinks(ids: ids) }
+        Button("Copy as Markdown") { copyFormatted(ids: ids, markdown: true) }
+        Button("Copy as HTML") { copyFormatted(ids: ids, markdown: false) }
         Button("Open in Browser") {
             urls(for: ids).forEach { NSWorkspace.shared.open($0) }
         }
@@ -189,6 +197,18 @@ struct ContentView: View {
         guard !links.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(links.joined(separator: "\n"), forType: .string)
+    }
+
+    private func copyFormatted(ids: Set<SentFile.ID>, markdown: Bool) {
+        guard let account = store.currentAccount else { return }
+        let pairs = store.currentFiles.filter { ids.contains($0.id) }
+            .compactMap { file in account.downloadURL(for: file).map { (file.name, $0.absoluteString) } }
+        guard !pairs.isEmpty else { return }
+        let text = pairs.map { name, url in
+            markdown ? "[\(name)](\(url))" : "<a href=\"\(url)\">\(htmlEscape(name))</a>"
+        }.joined(separator: "\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     // MARK: Actions
@@ -255,7 +275,10 @@ struct HeaderBar: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            DropWell()
+            HStack(spacing: 8) {
+                DropWell(compress: false) // send as-is
+                DropWell(compress: true)  // zip, then send
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("Links")
@@ -330,10 +353,11 @@ struct HeaderBar: View {
 }
 
 /// Always-visible drop well: quiet at rest, highlights only while a drag hovers it.
-/// Click to choose files.
+/// `compress: true` is the "zip, then send" well; false sends as-is. Click to choose files.
 struct DropWell: View {
     @Environment(Store.self) private var store
     @Environment(UploadManager.self) private var uploads
+    let compress: Bool
     @State private var targeted = false
 
     private let iconGradient = LinearGradient(
@@ -341,25 +365,19 @@ struct DropWell: View {
                  Color(red: 0.12, green: 0.55, blue: 0.96)],
         startPoint: .topLeading, endPoint: .bottomTrailing)
 
+    private var label: String { targeted ? "Release" : (compress ? "Compress" : "Send") }
+
     var body: some View {
         VStack(spacing: 5) {
-            if uploads.activeJobs.isEmpty {
-                Image(systemName: "paperplane.fill")
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(targeted ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(iconGradient))
-                    .rotationEffect(.degrees(-10))
-                Text(targeted ? "Release to send" : "Drop files")
-                    .font(.caption)
-                    .foregroundStyle(targeted ? Color.accentColor : Color.secondary)
-            } else {
-                ProgressView()
-                    .controlSize(.small)
-                Text("Uploading…")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+            Image(systemName: compress ? "doc.zipper" : "paperplane.fill")
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(targeted ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(iconGradient))
+                .rotationEffect(.degrees(compress ? 0 : -10))
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(targeted ? Color.accentColor : Color.secondary)
         }
-        .frame(width: 92, height: 68)
+        .frame(width: 90, height: 68)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(targeted ? AnyShapeStyle(Color.accentColor.opacity(0.12))
@@ -372,17 +390,19 @@ struct DropWell: View {
         )
         .animation(.easeOut(duration: 0.15), value: targeted)
         .onDrop(of: [.fileURL], isTargeted: $targeted) { providers in
-            handleFileDrop(providers, uploads: uploads, store: store)
+            handleFileDrop(providers, uploads: uploads, store: store, compress: compress)
         }
-        .onTapGesture { openPanel(uploads: uploads, store: store) }
-        .help("Drop files or folders here to send them — or click to choose")
-        .accessibilityLabel("Drop files here to send")
+        .onTapGesture { openPanel(uploads: uploads, store: store, compress: compress) }
+        .help(compress ? "Drop files to compress into one archive, then send — or click to choose"
+                       : "Drop files to send as-is — or click to choose")
+        .accessibilityLabel(compress ? "Compress and send files" : "Send files")
         .accessibilityAddTraits(.isButton)
     }
 }
 
 @MainActor
-func handleFileDrop(_ providers: [NSItemProvider], uploads: UploadManager, store: Store) -> Bool {
+func handleFileDrop(_ providers: [NSItemProvider], uploads: UploadManager, store: Store,
+                    compress: Bool = false) -> Bool {
     let account = store.currentAccount
     Task {
         var dropped: [URL] = []
@@ -394,9 +414,16 @@ func handleFileDrop(_ providers: [NSItemProvider], uploads: UploadManager, store
             }
             if let url { dropped.append(url) }
         }
-        if !dropped.isEmpty { uploads.send(dropped, to: account) }
+        if !dropped.isEmpty { uploads.send(dropped, to: account, forceArchive: compress) }
     }
     return true
+}
+
+func htmlEscape(_ s: String) -> String {
+    s.replacing("&", with: "&amp;")   // must be first
+        .replacing("<", with: "&lt;")
+        .replacing(">", with: "&gt;")
+        .replacing("\"", with: "&quot;")
 }
 
 func composeEmail(urls: [URL]) {
@@ -409,15 +436,15 @@ func composeEmail(urls: [URL]) {
 }
 
 @MainActor
-func openPanel(uploads: UploadManager, store: Store) {
+func openPanel(uploads: UploadManager, store: Store, compress: Bool = false) {
     let panel = NSOpenPanel()
     panel.canChooseFiles = true
     panel.canChooseDirectories = true
     panel.allowsMultipleSelection = true
-    panel.message = "Choose files or folders to send"
-    panel.prompt = "Send"
+    panel.message = compress ? "Choose files or folders to compress and send" : "Choose files or folders to send"
+    panel.prompt = compress ? "Compress & Send" : "Send"
     if panel.runModal() == .OK {
-        uploads.send(panel.urls, to: store.currentAccount)
+        uploads.send(panel.urls, to: store.currentAccount, forceArchive: compress)
     }
 }
 
@@ -486,6 +513,33 @@ struct AgeBadge: View {
             .font(.callout.monospacedDigit())
             .foregroundStyle(color)
             .help(expire > 0 ? "Expires after \(expire) days" : "Never expires")
+    }
+}
+
+// MARK: - Update banner
+
+struct UpdateBanner: View {
+    let version: String
+    let url: URL?
+    var onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundStyle(.blue)
+            Text("Sendling \(version) is available.")
+                .font(.callout)
+            Spacer()
+            if let url { Link("Download", destination: url) }
+            Button("Dismiss", systemImage: "xmark") { onDismiss() }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+        }
+        .controlSize(.small)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(.blue.opacity(0.12))
     }
 }
 
@@ -621,6 +675,14 @@ struct JobsPopover: View {
                         }
                     }
                     Spacer()
+                    if case .failed = job.status {
+                        Button("Retry", systemImage: "arrow.clockwise") {
+                            uploads.retry(job.id)
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.plain)
+                        .help("Try this upload again")
+                    }
                     if !job.isActive {
                         Button("Dismiss", systemImage: "xmark.circle.fill") {
                             uploads.dismissJob(job.id)

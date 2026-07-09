@@ -47,5 +47,38 @@
 			<string>None</string>
 		</dict>
 	</array>
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Send with Sendling</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>sendFiles</string>
+			<key>NSPortName</key>
+			<string>Sendling</string>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Compress &amp; Send with Sendling</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>compressAndSendFiles</string>
+			<key>NSPortName</key>
+			<string>Sendling</string>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

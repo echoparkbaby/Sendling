@@ -81,6 +81,7 @@ final class UploadManager {
     private var working = false
     private var batchLinks: [UUID: [URL]] = [:]
     private var pendingAsks: [AskRequest] = []
+    private var retryable: [UUID: (SendItem, Account)] = [:] // failed job → what to resend
 
     var activeJobs: [UploadJob] { jobs.filter(\.isActive) }
     var overallProgress: Double? {
@@ -92,12 +93,19 @@ final class UploadManager {
 
     // MARK: Entry point — decide how to send
 
-    func send(_ urls: [URL], to account: Account?) {
+    /// `forceArchive` — always wrap the drop into one archive (the "Compress & send" well),
+    /// bypassing the account's wrap policy and the ask sheet.
+    func send(_ urls: [URL], to account: Account?, forceArchive: Bool = false) {
         guard let account else {
             lastError = "Add an account in Settings before sending files."
             return
         }
         guard !urls.isEmpty else { return }
+
+        if forceArchive {
+            enqueueArchive(urls, account: account)
+            return
+        }
 
         let isDir: (URL) -> Bool = {
             (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
@@ -258,6 +266,7 @@ final class UploadManager {
             removeJob(jobID)
         } catch {
             setJob(jobID, status: .failed(error.localizedDescription), progress: nil)
+            if let jobID { retryable[jobID] = (item, account) } // keep it so the user can retry
             if showNotification {
                 Toast.show(fileName: item.displayName, url: nil,
                            error: error.localizedDescription, copied: false)
@@ -296,6 +305,16 @@ final class UploadManager {
 
     func dismissJob(_ id: UploadJob.ID) {
         jobs.removeAll { $0.id == id }
+        retryable[id] = nil
+    }
+
+    var canRetry: (UploadJob.ID) -> Bool { { self.retryable[$0] != nil } }
+
+    /// Re-send a failed job.
+    func retry(_ id: UploadJob.ID) {
+        guard let (item, account) = retryable.removeValue(forKey: id) else { return }
+        jobs.removeAll { $0.id == id }
+        enqueue([item], account: account)
     }
 
     private func setJob(_ id: UUID?, status: UploadJob.Status, progress: Double?) {

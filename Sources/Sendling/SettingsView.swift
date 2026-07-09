@@ -156,6 +156,10 @@ struct AccountDetail: View {
                     }
                 }
             }
+
+            Section {
+                TestConnectionRow(account: account, password: password)
+            }
         }
         .formStyle(.grouped)
         .onChange(of: account.host) { _, _ in syncAssistedURL() }
@@ -322,6 +326,25 @@ struct AccountDetail: View {
                 }
             }
 
+            if account.type.linksFromAPI {
+                Section {
+                    SecureField("Link password:", text: $account.linkPasswordValue,
+                                prompt: Text("none"))
+                    Picker("Link expires after:", selection: $account.linkExpireDaysValue) {
+                        Text("Never").tag(0)
+                        ForEach([1, 3, 7, 14, 30, 90], id: \.self) { Text("\($0) days").tag($0) }
+                    }
+                } header: {
+                    Text("Share links")
+                } footer: {
+                    Text(account.type == .dropbox
+                         ? "Applied to each new share link. Dropbox requires a Professional or Business plan for link passwords and expiry."
+                         : "Applied to each new share link created after upload.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             Section {
                 Picker("Default archive type:", selection: $account.archiveType) {
                     ForEach(ArchiveType.allCases) { Text($0.label).tag($0) }
@@ -365,6 +388,87 @@ struct AccountDetail: View {
     }
 }
 
+/// "Test Connection" button with an inline ✓/✗ result.
+struct TestConnectionRow: View {
+    let account: Account
+    let password: String
+    @State private var testing = false
+    @State private var result: String? // nil = untested, "" = ok, else error message
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button("Test Connection", action: runTest)
+                .disabled(testing)
+            if testing {
+                ProgressView().controlSize(.small)
+            } else if let result {
+                if result.isEmpty {
+                    Label("Connected", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                } else {
+                    Label(result, systemImage: "xmark.circle.fill")
+                        .foregroundStyle(.red)
+                        .lineLimit(2)
+                        .truncationMode(.middle)
+                }
+            }
+            Spacer()
+        }
+    }
+
+    private func runTest() {
+        testing = true
+        result = nil
+        Task {
+            result = await Transfer.test(account: account, password: password) ?? ""
+            testing = false
+        }
+    }
+}
+
+/// "Watched folder" — files dropped into it upload automatically to the current account.
+struct WatchedFolderSection: View {
+    @State private var watched = WatchedFolder.shared
+
+    var body: some View {
+        Section {
+            if let path = watched.folderPath {
+                LabeledContent("Watching:") {
+                    Text((path as NSString).abbreviatingWithTildeInPath)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                HStack {
+                    Button("Change…", action: chooseFolder)
+                    Button("Stop Watching") { watched.setFolder(nil) }
+                    Spacer()
+                }
+            } else {
+                Button("Choose Folder…", action: chooseFolder)
+            }
+        } header: {
+            Text("Watched folder")
+        } footer: {
+            Text("Files added to this folder upload automatically to the current account. Existing files are left alone.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose a folder to watch — new files in it upload automatically"
+        panel.prompt = "Watch"
+        if panel.runModal() == .OK, let url = panel.url {
+            watched.setFolder(url)
+        }
+    }
+}
+
 // MARK: - General
 
 struct GeneralSettings: View {
@@ -374,6 +478,7 @@ struct GeneralSettings: View {
     @AppStorage("completionSound") private var completionSound = "None"
     @AppStorage("autoDeleteExpired") private var autoDeleteExpired = false
     @AppStorage("scanAtLaunch") private var scanAtLaunch = true
+    @AppStorage("checkUpdatesAtLaunch") private var checkUpdatesAtLaunch = true
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @State private var iCloudSync = Store.shared.iCloudSyncEnabled
 
@@ -407,6 +512,8 @@ struct GeneralSettings: View {
                     .foregroundStyle(.secondary)
             }
 
+            WatchedFolderSection()
+
             Section {
                 Toggle("Sync accounts across my Macs", isOn: $iCloudSync)
                     .disabled(!store.iCloudAvailable)
@@ -427,10 +534,12 @@ struct GeneralSettings: View {
 
             Section {
                 LabeledContent("Version", value: Sendling.version)
+                Toggle("Check for updates at launch", isOn: $checkUpdatesAtLaunch)
                 HStack {
                     Link("Sendling on GitHub", destination: Sendling.projectURL)
                     Spacer()
-                    Button("Check for Updates…") {
+                    Button("Check Now") {
+                        Task { await UpdateChecker.shared.check() }
                         NSWorkspace.shared.open(Sendling.releasesURL)
                     }
                 }

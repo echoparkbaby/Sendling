@@ -182,9 +182,9 @@ enum Transfer {
         let parts = account.remoteDir.split(separator: "/").map(String.init)
         for i in parts.indices {
             let partial = parts[0...i].joined(separator: "/")
-            try? await runCurl(["-sS", "-o", "/dev/null", "--connect-timeout", "\(account.timeoutSeconds)",
-                                "-X", "MKCOL", dirURL(partial)],
-                               auth: basicAuthConfig(account, password: password), runner: runner)
+            _ = try? await runCurl(["-sS", "-o", "/dev/null", "--connect-timeout", "\(account.timeoutSeconds)",
+                                    "-X", "MKCOL", dirURL(partial)],
+                                   auth: basicAuthConfig(account, password: password), runner: runner)
         }
     }
 
@@ -244,6 +244,29 @@ enum Transfer {
                           })
     }
 
+    /// Lightweight connectivity + auth check. Returns nil on success, else a message.
+    static func test(account: Account, password: String) async -> String? {
+        do {
+            let runner = ProcessRunner()
+            switch account.type {
+            case .webdav:
+                try await runCurl(curlBase(account) + ["-X", "PROPFIND", "-H", "Depth: 0",
+                                                       "-o", "/dev/null", webdavURL(account, name: "")],
+                                  auth: basicAuthConfig(account, password: password), runner: runner)
+            case .dropbox:
+                let token = try await DropboxAPI.accessToken(appKey: account.dropboxAppKey ?? "",
+                                                             refreshToken: password)
+                _ = try await DropboxAPI.rpc("users/get_current_account", args: [:], token: token)
+                // Dropbox RPC with no args needs an explicit null body — handled in rpc()
+            default:
+                _ = try await list(account: account, password: password) // FTP/SFTP/Nextcloud
+            }
+            return nil
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
     /// Share link from the provider's API (Dropbox / Nextcloud).
     static func shareLink(for name: String, account: Account, password: String) async throws -> String {
         switch account.type {
@@ -251,7 +274,8 @@ enum Transfer {
             let token = try await DropboxAPI.accessToken(appKey: account.dropboxAppKey ?? "",
                                                          refreshToken: password)
             return try await DropboxAPI.shareLink(
-                path: DropboxAPI.apiPath(dir: account.remoteDir, name: name), token: token)
+                path: DropboxAPI.apiPath(dir: account.remoteDir, name: name), token: token,
+                password: account.linkPassword, expiresDays: account.linkExpireDays)
         case .nextcloud:
             return try await NextcloudAPI.shareLink(for: name, account: account, password: password)
         default:

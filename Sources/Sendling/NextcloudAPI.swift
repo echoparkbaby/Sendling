@@ -39,7 +39,18 @@ enum NextcloudAPI {
             return url
         }
 
-        let body = "path=\(encodedPath)&shareType=3"
+        var body = "path=\(encodedPath)&shareType=3"
+        if let linkPassword = account.linkPassword, !linkPassword.isEmpty {
+            let enc = linkPassword.addingPercentEncoding(withAllowedCharacters: pathValueAllowed) ?? linkPassword
+            body += "&password=\(enc)"
+        }
+        if let days = account.linkExpireDays, days > 0,
+           let date = Calendar.current.date(byAdding: .day, value: days, to: .now) {
+            let fmt = DateFormatter()
+            fmt.locale = Locale(identifier: "en_US_POSIX")
+            fmt.dateFormat = "yyyy-MM-dd"
+            body += "&expireDate=\(fmt.string(from: date))"
+        }
         let created = try await ocs("POST", url: ocsBase, body: body, account: account, password: password)
         guard let url = firstTag("url", in: created) else {
             throw TransferError(message: "Nextcloud didn’t return a share link" +

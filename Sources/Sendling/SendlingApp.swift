@@ -6,6 +6,7 @@ struct SendlingApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var store = Store.shared
     @State private var uploads = UploadManager.shared
+    @State private var watched = WatchedFolder.shared // instantiate → starts watching if configured
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
 
     var body: some Scene {
@@ -43,6 +44,10 @@ struct SendlingApp: App {
         CommandMenu("Links") {
             Button("Copy Link") { linkAction { copy($0) } }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
+                .disabled(store.selection.isEmpty)
+            Button("Copy as Markdown") { copyFormatted(markdown: true) }
+                .disabled(store.selection.isEmpty)
+            Button("Copy as HTML") { copyFormatted(markdown: false) }
                 .disabled(store.selection.isEmpty)
             Button("Open in Browser") { linkAction { $0.forEach { NSWorkspace.shared.open($0) } } }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
@@ -91,6 +96,19 @@ struct SendlingApp: App {
     private func copy(_ urls: [URL]) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(urls.map(\.absoluteString).joined(separator: "\n"), forType: .string)
+    }
+
+    private func copyFormatted(markdown: Bool) {
+        guard let account = store.currentAccount else { return }
+        let pairs = store.currentFiles
+            .filter { store.selection.contains($0.id) }
+            .compactMap { file in account.downloadURL(for: file).map { (file.name, $0.absoluteString) } }
+        guard !pairs.isEmpty else { return }
+        let text = pairs.map { name, url in
+            markdown ? "[\(name)](\(url))" : "<a href=\"\(url)\">\(htmlEscape(name))</a>"
+        }.joined(separator: "\n")
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 
@@ -150,6 +168,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.servicesProvider = self // enables the Finder "Send with Sendling" Services items
+
         let defaults = UserDefaults.standard
         let deleteExpired = defaults.bool(forKey: "autoDeleteExpired")
         // default true when the key has never been set
@@ -160,11 +180,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if deleteExpired { _ = await UploadManager.shared.deleteExpired() }
             if scan { await UploadManager.shared.refresh(quiet: true) }
         }
+        // default true when the key has never been set
+        if defaults.object(forKey: "checkUpdatesAtLaunch") == nil || defaults.bool(forKey: "checkUpdatesAtLaunch") {
+            Task { @MainActor in await UpdateChecker.shared.check() }
+        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag { sender.windows.first(where: { $0.identifier?.rawValue == "main" })?.makeKeyAndOrderFront(nil) }
         return true
+    }
+
+    // MARK: Finder Services ("Send with Sendling")
+
+    @objc func sendFiles(_ pboard: NSPasteboard, userData: String?,
+                         error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        serviceSend(pboard, compress: false)
+    }
+
+    @objc func compressAndSendFiles(_ pboard: NSPasteboard, userData: String?,
+                                    error: AutoreleasingUnsafeMutablePointer<NSString>) {
+        serviceSend(pboard, compress: true)
+    }
+
+    private func serviceSend(_ pboard: NSPasteboard, compress: Bool) {
+        let urls = pboard.readObjects(forClasses: [NSURL.self]) as? [URL] ?? []
+        guard !urls.isEmpty else { return }
+        Task { @MainActor in
+            UploadManager.shared.send(urls, to: Store.shared.currentAccount, forceArchive: compress)
+        }
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {

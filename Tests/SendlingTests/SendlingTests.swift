@@ -156,6 +156,20 @@ struct NextcloudAPITests {
     }
 }
 
+struct UpdateCheckerTests {
+    @Test(arguments: [
+        ("1.0.1", "1.0.0", true),
+        ("1.0.0", "1.0.0", false),
+        ("1.0.0", "1.0.1", false),
+        ("1.0.10", "1.0.9", true),   // numeric, not lexicographic
+        ("1.2", "1.1.9", true),
+        ("2.0.0", "1.9.9", true),
+    ])
+    func isNewerComparesNumerically(latest: String, current: String, expected: Bool) {
+        #expect(UpdateChecker.isNewer(latest, than: current) == expected)
+    }
+}
+
 struct SecurityAndExpiryTests {
     @Test func sftpQuoteEscapesAndRejectsControlChars() throws {
         #expect(try Transfer.sftpQuote("plain.zip") == "\"plain.zip\"")

@@ -84,7 +84,9 @@ enum DropboxAPI {
         req.httpMethod = "POST"
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: args)
+        // Endpoints that take no arguments (e.g. users/get_current_account) require a null body,
+        // not {} — sending {} is a 400.
+        req.httpBody = args.isEmpty ? Data("null".utf8) : (try JSONSerialization.data(withJSONObject: args))
         let (data, resp) = try await URLSession.shared.data(for: req)
         let json = (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
         if let summary = json["error_summary"] as? String {
@@ -107,19 +109,42 @@ enum DropboxAPI {
         return parts.isEmpty ? "" : "/" + parts.joined(separator: "/")
     }
 
-    static func shareLink(path: String, token: String) async throws -> String {
-        if let existing = try? await rpc("sharing/list_shared_links",
+    /// `password`/`expiresDays` require Dropbox Professional/Business — on free plans the
+    /// create call errors and we fall back to a plain existing link.
+    static func shareLink(path: String, token: String,
+                          password: String? = nil, expiresDays: Int? = nil) async throws -> String {
+        var settings: [String: Any] = [:]
+        if let password, !password.isEmpty {
+            settings["require_password"] = true
+            settings["link_password"] = password
+        }
+        if let expiresDays, expiresDays > 0,
+           let date = Calendar.current.date(byAdding: .day, value: expiresDays, to: .now) {
+            settings["expires"] = ISO8601DateFormatter().string(from: date)
+        }
+
+        func existingLink() async -> String? {
+            guard let e = try? await rpc("sharing/list_shared_links",
                                          args: ["path": path, "direct_only": true], token: token),
-           let links = existing["links"] as? [[String: Any]],
-           let url = links.first?["url"] as? String {
+                  let links = e["links"] as? [[String: Any]] else { return nil }
+            return links.first?["url"] as? String
+        }
+
+        // No protection requested → reuse an existing link if there is one.
+        if settings.isEmpty, let url = await existingLink() { return url }
+
+        let args: [String: Any] = settings.isEmpty ? ["path": path] : ["path": path, "settings": settings]
+        do {
+            let created = try await rpc("sharing/create_shared_link_with_settings", args: args, token: token)
+            guard let url = created["url"] as? String else {
+                throw TransferError(message: "Dropbox didn’t return a share link")
+            }
             return url
+        } catch {
+            // Already shared, or settings unsupported on this plan — use the existing link.
+            if let url = await existingLink() { return url }
+            throw error
         }
-        let created = try await rpc("sharing/create_shared_link_with_settings",
-                                    args: ["path": path], token: token)
-        guard let url = created["url"] as? String else {
-            throw TransferError(message: "Dropbox didn’t return a share link")
-        }
-        return url
     }
 
     static func parseEntries(_ json: [String: Any]) -> [RemoteEntry] {

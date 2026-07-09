@@ -175,7 +175,8 @@ struct ContentView: View {
         Button("Open in Browser") {
             urls(for: ids).forEach { NSWorkspace.shared.open($0) }
         }
-        Button("Compose Email") { composeEmail(urls: urls(for: ids)) }
+        Button("Email") { composeEmail(urls: urls(for: ids)) }
+        Button("Text") { textLink(urls: urls(for: ids)) }
         Divider()
         Button("Delete from Server…", role: .destructive) {
             pendingDeleteIDs = ids
@@ -309,17 +310,20 @@ struct HeaderBar: View {
                            action: copyAll)
                         .disabled(links.isEmpty)
 
+                    Button("Email", systemImage: "envelope", action: emailAll)
+                        .disabled(links.isEmpty)
+
+                    Button("Text", systemImage: "message", action: textAll)
+                        .disabled(links.isEmpty)
+
+                    Button("Open", systemImage: "safari", action: openAll)
+                        .disabled(links.isEmpty)
+
                     Button("QR", systemImage: "qrcode", action: showQRCode)
                         .disabled(links.isEmpty)
                         .popover(isPresented: $showQR) {
                             QRView(text: links.first?.absoluteString ?? "")
                         }
-
-                    Button("Open", systemImage: "safari", action: openAll)
-                        .disabled(links.isEmpty)
-
-                    Button("Email", systemImage: "envelope", action: emailAll)
-                        .disabled(links.isEmpty)
 
                     Spacer()
                 }
@@ -350,6 +354,7 @@ struct HeaderBar: View {
     private func showQRCode() { showQR = true }
     private func openAll() { links.forEach { NSWorkspace.shared.open($0) } }
     private func emailAll() { composeEmail(urls: links) }
+    private func textAll() { textLink(urls: links) }
 }
 
 /// Always-visible drop well: quiet at rest, highlights only while a drag hovers it.
@@ -427,6 +432,12 @@ func htmlEscape(_ s: String) -> String {
         .replacing("<", with: "&lt;")
         .replacing(">", with: "&gt;")
         .replacing("\"", with: "&quot;")
+}
+
+/// Opens the Messages compose window with the link(s) as the body (iMessage / SMS).
+func textLink(urls: [URL]) {
+    guard !urls.isEmpty, let service = NSSharingService(named: .composeMessage) else { return }
+    service.perform(withItems: [urls.map(\.absoluteString).joined(separator: "\n")])
 }
 
 func composeEmail(urls: [URL]) {

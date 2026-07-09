@@ -53,8 +53,11 @@ struct SendlingApp: App {
             Button("Open in Browser") { linkAction { $0.forEach { NSWorkspace.shared.open($0) } } }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
                 .disabled(store.selection.isEmpty)
-            Button("Compose Email") { linkAction { composeEmail(urls: $0) } }
+            Button("Email") { linkAction { composeEmail(urls: $0) } }
                 .keyboardShortcut("e", modifiers: [.command, .shift])
+                .disabled(store.selection.isEmpty)
+            Button("Text") { linkAction { textLink(urls: $0) } }
+                .keyboardShortcut("t", modifiers: [.command, .shift])
                 .disabled(store.selection.isEmpty)
             Divider()
             Button("Delete from Server") { deleteSelectedNow() }

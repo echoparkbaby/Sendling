@@ -250,9 +250,18 @@ struct AccountDetail: View {
                 }
                 .disabled((account.dropboxAppKey ?? "").isEmpty)
             } else {
-                TextField("Paste the code from the browser:", text: $dropboxCode)
+                // Full-width field on its own row — a long inline label squeezes it to nothing.
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Paste the code from the browser:")
+                        .foregroundStyle(.secondary)
+                    TextField("Authorization code", text: $dropboxCode, prompt: Text("Paste code here"))
+                        .textFieldStyle(.roundedBorder)
+                        .labelsHidden()
+                        .autocorrectionDisabled()
+                }
                 HStack {
                     Button("Finish Connecting") { finishDropboxAuth() }
+                        .buttonStyle(.borderedProminent)
                         .disabled(dropboxCode.isEmpty)
                     Button("Cancel") {
                         dropboxPKCE = nil

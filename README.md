@@ -61,7 +61,8 @@ For SFTP, leave the password empty to authenticate with your SSH keys.
 | **⌘1**–**⌘9** | Switch account |
 | **⌘⇧C** | Copy the selected file's link |
 | **⌘⇧O** | Open the link in your browser |
-| **⌘⇧E** | Compose an email with the link |
+| **⌘⇧E** | Email the link |
+| **⌘⇧T** | Text the link (Messages) |
 | **⌫** | Delete the selected file (asks first) |
 | **⌘⌫** | Delete the selected file — no confirmation |
 | **⌘D** | Delete expired files |

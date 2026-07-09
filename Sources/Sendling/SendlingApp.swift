@@ -14,6 +14,7 @@ struct SendlingApp: App {
             ContentView()
                 .environment(store)
                 .environment(uploads)
+                .onOpenURL { uploads.handleSchemeURL($0) } // sendling:// automation hook
         }
         .defaultSize(width: 720, height: 460)
         .commands { commands }
@@ -56,6 +57,9 @@ struct SendlingApp: App {
                 .keyboardShortcut("e", modifiers: [.command, .shift])
                 .disabled(store.selection.isEmpty)
             Divider()
+            Button("Delete from Server") { deleteSelectedNow() }
+                .keyboardShortcut(.delete, modifiers: .command) // ⌘⌫ — no confirmation
+                .disabled(store.selection.isEmpty)
             Button("Delete Expired Files") {
                 Task {
                     let errors = await uploads.deleteExpired()
@@ -96,6 +100,18 @@ struct SendlingApp: App {
     private func copy(_ urls: [URL]) {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(urls.map(\.absoluteString).joined(separator: "\n"), forType: .string)
+    }
+
+    /// ⌘⌫ — delete the selected files from the server immediately, no confirmation.
+    private func deleteSelectedNow() {
+        let ids = Set(store.currentFiles.filter { store.selection.contains($0.id) }.map(\.id))
+        guard !ids.isEmpty else { return }
+        Task {
+            let errors = await uploads.deleteRemote(ids: ids)
+            if !errors.isEmpty {
+                uploads.lastError = "Some files couldn’t be deleted:\n" + errors.joined(separator: "\n")
+            }
+        }
     }
 
     private func copyFormatted(markdown: Bool) {
@@ -162,8 +178,11 @@ struct MenuBarContent: View {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
+        let files = urls.filter(\.isFileURL)
+        let schemeURLs = urls.filter { $0.scheme == "sendling" }
         Task { @MainActor in
-            UploadManager.shared.send(urls, to: Store.shared.currentAccount)
+            if !files.isEmpty { UploadManager.shared.send(files, to: Store.shared.currentAccount) }
+            for url in schemeURLs { UploadManager.shared.handleSchemeURL(url) } // covers Dock/`open` path
         }
     }
 

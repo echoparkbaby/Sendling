@@ -9,9 +9,9 @@
 	<key>CFBundleIdentifier</key>
 	<string>com.hellocomputer.Sendling</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.1</string>
+	<string>1.0.2</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.1</string>
+	<string>1.0.2</string>
 	<key>CFBundleExecutable</key>
 	<string>Sendling</string>
 	<key>CFBundlePackageType</key>
@@ -45,6 +45,17 @@
 			<string>Viewer</string>
 			<key>LSHandlerRank</key>
 			<string>None</string>
+		</dict>
+	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.hellocomputer.Sendling</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>sendling</string>
+			</array>
 		</dict>
 	</array>
 	<key>NSServices</key>

@@ -275,7 +275,7 @@ enum Transfer {
                                                          refreshToken: password)
             return try await DropboxAPI.shareLink(
                 path: DropboxAPI.apiPath(dir: account.remoteDir, name: name), token: token,
-                password: account.linkPassword, expiresDays: account.linkExpireDays)
+                expiresDays: account.linkExpireDays)
         case .nextcloud:
             return try await NextcloudAPI.shareLink(for: name, account: account, password: password)
         default:

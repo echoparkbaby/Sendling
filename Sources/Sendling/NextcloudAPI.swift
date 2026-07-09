@@ -40,10 +40,6 @@ enum NextcloudAPI {
         }
 
         var body = "path=\(encodedPath)&shareType=3"
-        if let linkPassword = account.linkPassword, !linkPassword.isEmpty {
-            let enc = linkPassword.addingPercentEncoding(withAllowedCharacters: pathValueAllowed) ?? linkPassword
-            body += "&password=\(enc)"
-        }
         if let days = account.linkExpireDays, days > 0,
            let date = Calendar.current.date(byAdding: .day, value: days, to: .now) {
             let fmt = DateFormatter()

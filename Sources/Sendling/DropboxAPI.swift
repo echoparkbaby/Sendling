@@ -109,15 +109,10 @@ enum DropboxAPI {
         return parts.isEmpty ? "" : "/" + parts.joined(separator: "/")
     }
 
-    /// `password`/`expiresDays` require Dropbox Professional/Business — on free plans the
-    /// create call errors and we fall back to a plain existing link.
-    static func shareLink(path: String, token: String,
-                          password: String? = nil, expiresDays: Int? = nil) async throws -> String {
+    /// `expiresDays` requires Dropbox Professional/Business — on free plans the create call
+    /// errors and we fall back to a plain existing link.
+    static func shareLink(path: String, token: String, expiresDays: Int? = nil) async throws -> String {
         var settings: [String: Any] = [:]
-        if let password, !password.isEmpty {
-            settings["require_password"] = true
-            settings["link_password"] = password
-        }
         if let expiresDays, expiresDays > 0,
            let date = Calendar.current.date(byAdding: .day, value: expiresDays, to: .now) {
             settings["expires"] = ISO8601DateFormatter().string(from: date)

@@ -155,7 +155,7 @@ struct ContentView: View {
                 .labelStyle(.iconOnly)
                 .buttonStyle(.plain)
                 .foregroundStyle(.tertiary)
-                .help("Delete from server (⌥-click to skip the confirmation)")
+                .help("Delete from server (⌘-click to skip the confirmation)")
             }
             .width(24)
         }
@@ -213,10 +213,10 @@ struct ContentView: View {
 
     // MARK: Actions
 
-    /// Confirm first, or — with Option held — delete immediately.
+    /// Confirm first, or — with Command held (⌘⌫ / ⌘-click) — delete immediately.
     private func requestDelete(_ ids: Set<SentFile.ID>) {
         guard !ids.isEmpty else { return }
-        if NSEvent.modifierFlags.contains(.option) {
+        if NSEvent.modifierFlags.contains(.command) {
             performDelete(ids)
         } else {
             pendingDeleteIDs = ids // captured now; immune to selection changing before confirm
@@ -404,6 +404,7 @@ struct DropWell: View {
 func handleFileDrop(_ providers: [NSItemProvider], uploads: UploadManager, store: Store,
                     compress: Bool = false) -> Bool {
     let account = store.currentAccount
+    let options = NSEvent.modifierFlags.contains(.option) // ⌥-drop → send-options sheet
     Task {
         var dropped: [URL] = []
         for provider in providers {
@@ -414,7 +415,9 @@ func handleFileDrop(_ providers: [NSItemProvider], uploads: UploadManager, store
             }
             if let url { dropped.append(url) }
         }
-        if !dropped.isEmpty { uploads.send(dropped, to: account, forceArchive: compress) }
+        if !dropped.isEmpty {
+            uploads.send(dropped, to: account, forceArchive: compress && !options, forceOptions: options)
+        }
     }
     return true
 }
@@ -437,6 +440,7 @@ func composeEmail(urls: [URL]) {
 
 @MainActor
 func openPanel(uploads: UploadManager, store: Store, compress: Bool = false) {
+    let options = NSEvent.modifierFlags.contains(.option) // ⌥-click → send-options sheet
     let panel = NSOpenPanel()
     panel.canChooseFiles = true
     panel.canChooseDirectories = true
@@ -444,7 +448,8 @@ func openPanel(uploads: UploadManager, store: Store, compress: Bool = false) {
     panel.message = compress ? "Choose files or folders to compress and send" : "Choose files or folders to send"
     panel.prompt = compress ? "Compress & Send" : "Send"
     if panel.runModal() == .OK {
-        uploads.send(panel.urls, to: store.currentAccount, forceArchive: compress)
+        uploads.send(panel.urls, to: store.currentAccount,
+                     forceArchive: compress && !options, forceOptions: options)
     }
 }
 
@@ -519,6 +524,7 @@ struct AgeBadge: View {
 // MARK: - Update banner
 
 struct UpdateBanner: View {
+    @State private var updater = UpdateChecker.shared
     let version: String
     let url: URL?
     var onDismiss: () -> Void
@@ -527,14 +533,21 @@ struct UpdateBanner: View {
         HStack(spacing: 10) {
             Image(systemName: "arrow.down.circle.fill")
                 .foregroundStyle(.blue)
-            Text("Sendling \(version) is available.")
+            Text(updater.installError.map { "Update failed: \($0)" } ?? "Sendling \(version) is available.")
                 .font(.callout)
+                .foregroundStyle(updater.installError == nil ? Color.primary : Color.red)
             Spacer()
-            if let url { Link("Download", destination: url) }
-            Button("Dismiss", systemImage: "xmark") { onDismiss() }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
+            if updater.installing {
+                ProgressView().controlSize(.small)
+                Text("Installing…").font(.callout).foregroundStyle(.secondary)
+            } else {
+                Button("Update Now") { Task { await updater.downloadAndInstall() } }
+                if let url { Link("Details", destination: url) }
+                Button("Dismiss", systemImage: "xmark") { onDismiss() }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+            }
         }
         .controlSize(.small)
         .padding(.horizontal, 12)
@@ -590,6 +603,13 @@ struct BottomBar: View {
             .frame(maxWidth: 220)
             .disabled(store.accounts.isEmpty)
             .onChange(of: store.selectedAccountID) { store.save() }
+
+            if uploads.isCompressing {
+                HStack(spacing: 5) {
+                    ProgressView().controlSize(.small)
+                    Text("Compressing…").font(.callout).foregroundStyle(.secondary)
+                }
+            }
 
             Spacer()
 
@@ -718,7 +738,15 @@ struct JobsPopover: View {
 struct AskSheet: View {
     @Environment(UploadManager.self) private var uploads
     @State var request: AskRequest
-    @State private var wrap = true
+    @State private var wrap: Bool
+
+    init(request: AskRequest) {
+        _request = State(initialValue: request)
+        // A single sendable-as-is file (e.g. a photo) defaults to "as-is" so its per-send
+        // options — image compression, rename — are visible right away; folders/multiples
+        // default to a single archive.
+        _wrap = State(initialValue: !(request.canSendAsIs && request.urls.count == 1))
+    }
 
     private var itemSummary: String {
         if request.urls.count == 1 {
@@ -749,6 +777,33 @@ struct AskSheet: View {
                     }
                     .frame(maxWidth: 220)
                     SecureField("Password (optional):", text: $request.archivePassword)
+                }
+            }
+
+            let showRename = !wrap && request.urls.count == 1
+            let showImage = !wrap && request.hasImage
+            let showLink = request.account.type.linksFromAPI
+            if request.showsOptions && (showRename || showImage || showLink) {
+                Form {
+                    if showRename {
+                        TextField("Send as:", text: $request.renameTo) // rename on the server
+                    }
+                    if showImage {
+                        Toggle("Compress image", isOn: $request.compressImage)
+                        if request.compressImage {
+                            Picker("Max size:", selection: $request.imageMaxDim) {
+                                Text("1024 px").tag(1024)
+                                Text("2048 px").tag(2048)
+                                Text("4096 px").tag(4096)
+                            }
+                        }
+                    }
+                    if showLink {
+                        Picker("Link expires after:", selection: $request.linkExpireDays) {
+                            Text("Never").tag(0)
+                            ForEach([1, 3, 7, 14, 30, 90], id: \.self) { Text("\($0) days").tag($0) }
+                        }
+                    }
                 }
             }
 

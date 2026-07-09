@@ -328,8 +328,6 @@ struct AccountDetail: View {
 
             if account.type.linksFromAPI {
                 Section {
-                    SecureField("Link password:", text: $account.linkPasswordValue,
-                                prompt: Text("none"))
                     Picker("Link expires after:", selection: $account.linkExpireDaysValue) {
                         Text("Never").tag(0)
                         ForEach([1, 3, 7, 14, 30, 90], id: \.self) { Text("\($0) days").tag($0) }
@@ -338,7 +336,7 @@ struct AccountDetail: View {
                     Text("Share links")
                 } footer: {
                     Text(account.type == .dropbox
-                         ? "Applied to each new share link. Dropbox requires a Professional or Business plan for link passwords and expiry."
+                         ? "Applied to each new share link. Dropbox requires a Professional or Business plan for link expiry."
                          : "Applied to each new share link created after upload.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -479,6 +477,8 @@ struct GeneralSettings: View {
     @AppStorage("autoDeleteExpired") private var autoDeleteExpired = false
     @AppStorage("scanAtLaunch") private var scanAtLaunch = true
     @AppStorage("checkUpdatesAtLaunch") private var checkUpdatesAtLaunch = true
+    @AppStorage("optimizeImages") private var optimizeImages = false
+    @AppStorage("optimizeImagesMaxDim") private var optimizeMaxDim = 2048
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @State private var iCloudSync = Store.shared.iCloudSyncEnabled
 
@@ -502,6 +502,23 @@ struct GeneralSettings: View {
                 .onChange(of: completionSound) { _, new in
                     if new != "None" { NSSound(named: new)?.play() }
                 }
+            }
+
+            Section {
+                Toggle("Optimize images before upload", isOn: $optimizeImages)
+                if optimizeImages {
+                    Picker("Max image size:", selection: $optimizeMaxDim) {
+                        Text("1024 px").tag(1024)
+                        Text("2048 px").tag(2048)
+                        Text("4096 px").tag(4096)
+                    }
+                }
+            } header: {
+                Text("Uploads")
+            } footer: {
+                Text("Large JPEG/PNG/HEIC images are downscaled and recompressed before upload. The original on disk is untouched, and the optimized copy is only used when it's actually smaller.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section("Housekeeping") {

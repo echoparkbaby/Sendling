@@ -1,21 +1,12 @@
-**Sendling 1.0** — drop a file, get a shareable link.
+**Sendling 1.0.1**
 
-A native macOS app that uploads to *your own* server and puts the download link on your clipboard. No third-party cloud, no accounts, no subscription. Open-source successor to the late FileChute.
+New since 1.0:
 
-### Features
-- **Six backends** — SFTP (password or SSH key), FTP, FTPS, WebDAV, Nextcloud, Dropbox
-- **Real share links** — Nextcloud `/s/…` via the OCS API, Dropbox via its sharing API; other backends derive links from your download URL
-- **Drag & drop** anywhere — the window's drop well, the Dock icon, or ⌘O
-- **Archives on the fly** — wrap files/folders as zip, tar.gz, or dmg, optionally password-protected
-- **Expiry** — per-account, with age badges and one-click / at-launch cleanup of expired files
-- **Refresh** pulls the server's real directory listing
-- **QR codes**, **menu bar extra** with recent links, **multiple accounts** (⌘1–9)
-- **FileChute import** — brings your old accounts across
+- **iCloud sync** — turn it on in Settings to keep your accounts and sent-file history in sync across your Macs through iCloud Drive. Passwords stay on each Mac (entered once per machine).
+- **First-launch welcome** — a fresh Mac offers to turn on sync, and if another Mac already synced Sendling data to iCloud, it offers to load those accounts here.
+- **Inline delete** — every file row has an `×` that deletes it from the server after a confirmation. Hold **⌥ Option** (on the `×` or ⌫) to skip the confirmation and delete immediately.
+- **QR sharing** — drag the QR code straight out to iMessage, Finder, or Mail as a picture, or use the new Share button.
 
-### Install
-Download `Sendling-v1.0.0.dmg`, open it, drag Sendling to Applications. Requires macOS 14 (Sonoma) or later. Universal (Apple silicon + Intel), signed and notarized.
-
-### Setup
-Add a server account in Settings (⌘,), set the Download URL, then drop a file. The link is on your clipboard.
+Download `Sendling-v1.0.1.dmg`, open it, drag Sendling to Applications. Requires macOS 14 (Sonoma) or later. Universal (Apple silicon + Intel), signed and notarized.
 
 Zero dependencies — transfers use `curl`/`sftp`, archives use `zip`/`tar`/`hdiutil`, all shipped with macOS.

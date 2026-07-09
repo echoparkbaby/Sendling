@@ -52,6 +52,23 @@ Requires macOS 14 (Sonoma) or later.
 
 For SFTP, leave the password empty to authenticate with your SSH keys.
 
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| **⌘O** | Choose files to send |
+| **⌘,** | Open Settings |
+| **⌘1**–**⌘9** | Switch account |
+| **⌘⇧C** | Copy the selected file's link |
+| **⌘⇧O** | Open the link in your browser |
+| **⌘⇧E** | Compose an email with the link |
+| **⌫** | Delete the selected file (asks first) |
+| **⌘⌫** | Delete the selected file — no confirmation |
+| **⌘D** | Delete expired files |
+| Double-click a row | Copy that file's link |
+| **⌥**-drag onto a well | Open per-send options (rename, compress an image, link expiry) |
+| **⌘**-click the **×** | Delete that file without confirmation |
+
 ## Build from source
 
 ```

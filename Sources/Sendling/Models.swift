@@ -11,6 +11,15 @@ enum Sendling {
     static let supportDir = FileManager.default
         .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Sendling")
+
+    /// The user's iCloud Drive "Sendling" folder, or nil if iCloud Drive isn't enabled.
+    /// Plain file I/O here syncs across the user's Macs — no ubiquity-container entitlement.
+    static var iCloudDir: URL? {
+        let drive = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs")
+        guard FileManager.default.fileExists(atPath: drive.path) else { return nil }
+        return drive.appendingPathComponent("Sendling")
+    }
 }
 
 // MARK: - Account

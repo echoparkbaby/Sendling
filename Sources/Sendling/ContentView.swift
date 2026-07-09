@@ -14,6 +14,8 @@ struct ContentView: View {
     @State private var deleteErrors: [String] = []
     @State private var showDeleteErrors = false
     @State private var refreshing = false
+    @AppStorage("didOnboard") private var didOnboard = false
+    @State private var showWelcome = false
 
     private var visibleFiles: [SentFile] {
         var files = store.currentFiles
@@ -84,14 +86,22 @@ struct ContentView: View {
         }
         .onDeleteCommand {
             // Scope to visible rows of the current account, not the raw (possibly stale) selection
-            let ids = Set(selectedFiles.map(\.id))
-            if !ids.isEmpty { pendingDeleteIDs = ids; confirmDelete = true }
+            requestDelete(Set(selectedFiles.map(\.id)))
         }
         .task {
             if let err = store.loadError {
                 uploads.lastError = err
                 store.loadError = nil
             }
+            if !didOnboard {
+                didOnboard = true // show once per Mac
+                showWelcome = true
+            }
+        }
+        .sheet(isPresented: $showWelcome) {
+            WelcomeSheet(iCloudAvailable: store.iCloudAvailable,
+                         iCloudHasData: store.iCloudDataAvailable,
+                         onEnableSync: { store.setiCloudSync(true) })
         }
     }
 
@@ -131,6 +141,17 @@ struct ContentView: View {
                 AgeBadge(file: file, account: store.currentAccount)
             }
             .width(70)
+
+            TableColumn("") { file in
+                Button("Delete \(file.name) from server", systemImage: "xmark.circle.fill") {
+                    requestDelete([file.id])
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.plain)
+                .foregroundStyle(.tertiary)
+                .help("Delete from server (⌥-click to skip the confirmation)")
+            }
+            .width(24)
         }
         .contextMenu(forSelectionType: SentFile.ID.self) { ids in
             contextMenu(for: ids)
@@ -172,8 +193,20 @@ struct ContentView: View {
 
     // MARK: Actions
 
-    private func deleteSelection() {
-        let ids = pendingDeleteIDs // captured at trigger time; immune to selection changing later
+    /// Confirm first, or — with Option held — delete immediately.
+    private func requestDelete(_ ids: Set<SentFile.ID>) {
+        guard !ids.isEmpty else { return }
+        if NSEvent.modifierFlags.contains(.option) {
+            performDelete(ids)
+        } else {
+            pendingDeleteIDs = ids // captured now; immune to selection changing before confirm
+            confirmDelete = true
+        }
+    }
+
+    private func deleteSelection() { performDelete(pendingDeleteIDs) }
+
+    private func performDelete(_ ids: Set<SentFile.ID>) {
         Task {
             deleteErrors = await uploads.deleteRemote(ids: ids)
             showDeleteErrors = !deleteErrors.isEmpty
@@ -392,32 +425,44 @@ func openPanel(uploads: UploadManager, store: Store) {
 
 struct QRView: View {
     let text: String
+    @State private var nsImage: NSImage?
 
     var body: some View {
-        VStack(spacing: 8) {
-            if let image = qrImage(for: text) {
-                Image(nsImage: image)
+        VStack(spacing: 10) {
+            if let nsImage {
+                let image = Image(nsImage: nsImage)
+                image
                     .interpolation(.none)
                     .resizable()
                     .frame(width: 180, height: 180)
+                    .draggable(image) // drag the code out as a picture (iMessage, Finder, Mail…)
+
+                Text("Scan to open — or drag the code out")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                ShareLink(item: image, preview: SharePreview("QR Code", image: image)) {
+                    Label("Share…", systemImage: "square.and.arrow.up")
+                }
+                .controlSize(.small)
+            } else {
+                ProgressView().frame(width: 180, height: 180)
             }
-            Text("Scan to open on your phone")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
         .padding(16)
+        .task(id: text) { nsImage = Self.qrImage(for: text) }
     }
 
     // CIContext is expensive; share one across renders
     private static let context = CIContext()
 
-    private func qrImage(for string: String) -> NSImage? {
+    private static func qrImage(for string: String) -> NSImage? {
         let filter = CIFilter.qrCodeGenerator()
         filter.message = Data(string.utf8)
         filter.correctionLevel = "M"
         guard let output = filter.outputImage else { return nil }
         let scaled = output.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
-        guard let cg = Self.context.createCGImage(scaled, from: scaled.extent) else { return nil }
+        guard let cg = context.createCGImage(scaled, from: scaled.extent) else { return nil }
         return NSImage(cgImage: cg, size: NSSize(width: scaled.extent.width, height: scaled.extent.height))
     }
 }

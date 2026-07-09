@@ -368,12 +368,14 @@ struct AccountDetail: View {
 // MARK: - General
 
 struct GeneralSettings: View {
+    @Environment(Store.self) private var store
     @AppStorage("autoCopyLink") private var autoCopyLink = true
     @AppStorage("showNotification") private var showNotification = true
     @AppStorage("completionSound") private var completionSound = "None"
     @AppStorage("autoDeleteExpired") private var autoDeleteExpired = false
     @AppStorage("scanAtLaunch") private var scanAtLaunch = true
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
+    @State private var iCloudSync = Store.shared.iCloudSyncEnabled
 
     // Filesystem scan once, not per render
     private static let soundNames: [String] = {
@@ -401,6 +403,20 @@ struct GeneralSettings: View {
                 Toggle("Scan server at launch", isOn: $scanAtLaunch)
                 Toggle("Delete expired files from server at launch", isOn: $autoDeleteExpired)
                 Text("Expiry is configured per account, under Accounts → Sending.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
+                Toggle("Sync accounts across my Macs", isOn: $iCloudSync)
+                    .disabled(!store.iCloudAvailable)
+                    .onChange(of: iCloudSync) { _, on in store.setiCloudSync(on) }
+            } header: {
+                Text("iCloud")
+            } footer: {
+                Text(store.iCloudAvailable
+                     ? "Accounts and sent-file history sync through iCloud Drive. Passwords stay on each Mac for security — enter each account’s password once per Mac."
+                     : "Turn on iCloud Drive in System Settings to sync across your Macs.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

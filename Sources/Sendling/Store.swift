@@ -11,6 +11,10 @@ enum Keychain {
          kSecAttrAccount as String: key]
     }
 
+    // ponytail: passwords stay local per-Mac. iCloud Keychain (kSecAttrSynchronizable) needs a
+    // keychain-access-groups entitlement that a hand-signed Developer ID app can't carry without
+    // App Store provisioning — it fails with errSecMissingEntitlement (-34018). Secrets never
+    // leaving the machine is also a security win; accounts/history still sync via iCloud Drive.
     static func set(_ value: String, for key: String) {
         SecItemDelete(query(key) as CFDictionary)
         guard !value.isEmpty else { return }
@@ -63,7 +67,20 @@ final class Store {
         return files.filter { $0.accountID == account.id }
     }
 
-    private var dataURL: URL { Sendling.supportDir.appendingPathComponent("data.json") }
+    var iCloudSyncEnabled: Bool { UserDefaults.standard.bool(forKey: "iCloudSync") }
+    var iCloudAvailable: Bool { Sendling.iCloudDir != nil }
+    /// True when another Mac has already synced Sendling data into iCloud Drive.
+    var iCloudDataAvailable: Bool {
+        guard let url = iCloudDataURL else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    private var localDataURL: URL { Sendling.supportDir.appendingPathComponent("data.json") }
+    private var iCloudDataURL: URL? { Sendling.iCloudDir?.appendingPathComponent("data.json") }
+    /// Active store file — iCloud Drive when sync is on and available, else local.
+    private var dataURL: URL {
+        (iCloudSyncEnabled ? iCloudDataURL : nil) ?? localDataURL
+    }
 
     private struct Persisted: Codable {
         var accounts: [Account]
@@ -73,7 +90,11 @@ final class Store {
 
     private init() {
         try? FileManager.default.createDirectory(at: Sendling.supportDir, withIntermediateDirectories: true)
-        guard let data = try? Data(contentsOf: dataURL) else { return } // first launch
+        load()
+    }
+
+    private func load() {
+        guard let data = try? Data(contentsOf: dataURL) else { return } // first launch / evicted
         do {
             let p = try Self.decoder.decode(Persisted.self, from: data)
             accounts = p.accounts
@@ -90,7 +111,33 @@ final class Store {
         }
     }
 
+    /// Re-read the store — picks up changes another Mac synced via iCloud.
+    /// ponytail: called on app activation (covers the switch-Macs workflow); an NSMetadataQuery
+    /// would give live updates while both Macs are open, add it if that's ever needed.
+    func reload() {
+        guard iCloudSyncEnabled else { return }
+        load()
+    }
+
+    /// Turns iCloud sync on/off, migrating the data file and passwords.
+    func setiCloudSync(_ on: Bool) {
+        UserDefaults.standard.set(on, forKey: "iCloudSync") // flips which dataURL is active
+        if on, let dir = Sendling.iCloudDir, let cloud = iCloudDataURL {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            if FileManager.default.fileExists(atPath: cloud.path) {
+                load()  // another Mac already has data — adopt it
+            } else {
+                save()  // first device — push current data up to iCloud
+            }
+        } else {
+            save()  // sync off — write current data back to the local store
+        }
+    }
+
     func save() {
+        if iCloudSyncEnabled, let dir = Sendling.iCloudDir {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
         let p = Persisted(accounts: accounts, files: files, selectedAccountID: selectedAccountID)
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]

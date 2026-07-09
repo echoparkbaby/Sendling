@@ -23,6 +23,8 @@ It's a modern, open-source successor to the late, great [FileChute](https://yell
 - **Menu bar extra** — recent links one click away, send files without the main window
 - **Multiple accounts** — switch with ⌘1–⌘9
 - **Per-file actions** — copy link, open in browser, compose email, delete from server (right-click or the Links menu)
+- **Quick delete** — the `×` on each row deletes that file from the server after a confirmation; hold **⌥ Option** while clicking (or on ⌫) to skip the confirmation and delete immediately
+- **iCloud sync** — turn on in Settings to sync accounts and history across your Macs via iCloud Drive (passwords stay on each Mac)
 - **Native notifications** and optional completion sounds
 - **FileChute migration** — one-click account import if FileChute's preferences are found
 - **Universal binary** (Apple silicon + Intel), signed with a Developer ID

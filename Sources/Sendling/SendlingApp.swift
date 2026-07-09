@@ -166,4 +166,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !flag { sender.windows.first(where: { $0.identifier?.rawValue == "main" })?.makeKeyAndOrderFront(nil) }
         return true
     }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        // Pick up account/history changes another Mac synced via iCloud while we were away.
+        Task { @MainActor in Store.shared.reload() }
+    }
 }

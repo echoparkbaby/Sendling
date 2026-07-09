@@ -52,6 +52,24 @@ Requires macOS 14 (Sonoma) or later.
 
 For SFTP, leave the password empty to authenticate with your SSH keys.
 
+### Dropbox
+
+Dropbox needs a one-time app registration (you make your own free Dropbox app — Sendling never sees your Dropbox password, only tokens you authorize).
+
+1. Go to **[dropbox.com/developers/apps](https://www.dropbox.com/developers/apps)** → **Create app**.
+2. Choose **Scoped access**, then an access type:
+   - **App folder** (recommended) — Sendling can only touch its own folder at `Dropbox/Apps/<your app name>/`. Tidiest and safest.
+   - **Full Dropbox** — Sendling can write anywhere in your Dropbox.
+3. Name the app (e.g. `Sendling`) and create it.
+4. Open the **Permissions** tab and enable these scopes, then click **Submit**:
+   `account_info.read`, `files.metadata.read`, `files.content.write`, `sharing.write`, `sharing.read`.
+5. On the **Settings** tab, copy the **App key** (a short ~15-character string — *not* the long code from the next step).
+6. In Sendling: **Settings → Accounts → +**, set **Type: Dropbox**, paste the **App key**, click **Connect to Dropbox…**, approve in the browser, then paste the code Dropbox shows back into the field and click **Finish Connecting**.
+
+**Where files land:** leave the **Dropbox folder** blank to upload to the app's base folder (for an App-folder app that's `Dropbox/Apps/<your app name>/`), or set a subfolder name — Dropbox creates it automatically. Every upload gets a public share link on your clipboard.
+
+If you change the app's permissions later, click **Reconnect** in Sendling — scopes only take effect on a fresh token.
+
 ## Keyboard shortcuts
 
 | Shortcut | Action |
